@@ -15,6 +15,9 @@ WANT = {
     (0x0028, 0x0103): "pixelRep", (0x0028, 0x0002): "samples", (0x0028, 0x0004): "photometric",
     (0x0028, 0x1050): "wc", (0x0028, 0x1051): "ww", (0x0028, 0x1052): "intercept",
     (0x0028, 0x1053): "slope", (0x0008, 0x0008): "imageType",
+    (0x0010, 0x1010): "age", (0x0010, 0x0040): "sex", (0x0008, 0x0050): "acc",
+    (0x0008, 0x0080): "institution", (0x0008, 0x0090): "referring", (0x0008, 0x0070): "maker",
+    (0x0008, 0x1090): "model", (0x0008, 0x0030): "studyTime",
 }
 US = {"rows", "cols", "bitsAlloc", "pixelRep", "samples"}
 LONG_VR = {b"OB", b"OW", b"OF", b"OD", b"OL", b"OV", b"SQ", b"UC", b"UR", b"UT", b"UN"}
@@ -106,7 +109,7 @@ def main():
             if h.get("ts") != "1.2.840.10008.1.2.1":
                 print("WARNING non explicit-LE:", p, h.get("ts"), file=sys.stderr)
             n += 1
-            meta = meta or {k: h.get(k, "") for k in ("patient", "pid", "studyDate", "studyDesc")}
+            meta = meta or {k: h.get(k, "") for k in ("patient", "pid", "studyDate", "studyDesc", "age", "sex", "acc", "institution", "referring", "maker", "model", "studyTime")}
             s = series.setdefault(h["seriesUID"], {
                 "uid": h["seriesUID"], "number": int(h.get("seriesNumber") or 0),
                 "desc": h.get("seriesDesc", ""), "modality": h.get("modality", ""), "images": []})

@@ -280,8 +280,32 @@ let drawn = 0, snapTimer = 0;
 function snapCanvas() {
   const r = region(S.images[ii]), c = document.createElement("canvas");
   c.width = r.w; c.height = r.h;
-  c.getContext("2d").drawImage(off, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  const x = c.getContext("2d");
+  x.drawImage(off, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  burnInfo(x, r.w, r.h);
   return c;
+}
+// Corner text burned into every saved image (PNG button and right-click), like the disc viewer's export.
+function burnInfo(x, w, h) {
+  const st = M.study, im = S.images[ii], fs = Math.max(11, Math.round(h / 40)), pad = Math.round(fs * .7), lh = Math.round(fs * 1.25);
+  const d = st.studyDate || "", t = st.studyTime || "";
+  const when = d ? `${d.slice(4, 6)}/${d.slice(6, 8)}/${d.slice(0, 4)}` + (t ? ` ${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}` : "") : "";
+  const nm = (v) => (v || "").replace(/\^+/g, " ").trim();
+  const age = (st.age || "").replace(/^0+/, "");
+  const draw = (lines, right, bottom, col) => {
+    x.textAlign = right ? "right" : "left"; x.textBaseline = "top";
+    lines.forEach((ln, k) => {
+      const y = bottom ? h - pad - lh * (lines.length - k) : pad + lh * k, px = right ? w - pad : pad;
+      x.lineWidth = Math.max(2, fs / 5); x.strokeStyle = "#000"; x.strokeText(ln, px, y);
+      x.fillStyle = col; x.fillText(ln, px, y);
+    });
+  };
+  x.font = `${fs}px sans-serif`; x.lineJoin = "round";
+  draw([nm(st.patient), [age, st.sex, st.pid].filter(Boolean).join(" "), st.acc ? `Acc#: ${st.acc}` : "",
+    `Study Desc: ${st.studyDesc}`, `Series Desc: ${S.desc}`].filter(Boolean), false, false, "#fff");
+  draw([st.institution, nm(st.referring), when, [st.maker, st.model].filter(Boolean).join(" ")].filter(Boolean), true, false, "#fff");
+  draw([`Image ${ii + 1} / ${S.count}`], false, true, "#fff");
+  if (im.spp !== 3) draw([`C ${Math.round(wc)}`, `W ${Math.round(ww)}`], true, true, "#ff5050");
 }
 function refreshSnap() {
   const t = drawn;
@@ -393,7 +417,7 @@ function save(blob, ext) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
-$("dlp").onclick = async () => {              // the rendered offscreen image, current window, no overlays
+$("dlp").onclick = async () => {              // the rendered offscreen image, current window, corner info burned in
   await draw();
   snapCanvas().toBlob(b => b && save(b, "png"), "image/png");
 };
