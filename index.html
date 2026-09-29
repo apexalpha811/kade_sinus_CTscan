@@ -166,7 +166,8 @@ let tile = -1, cine = null, cw = 0, ch = 0, dpr = 1, drag = null, token = 0;
 // is the last element on this disc (verified below), avoids a full DICOM parser in the browser.
 function load(im) {
   if (!cache.has(im.f)) {
-    cache.set(im.f, fetch("data/" + im.f).then(r => {
+    // vercel.json's immutable header also sticks to 404s, so a bad response is retried past the HTTP cache
+    cache.set(im.f, fetch("data/" + im.f).then(r => r.ok ? r : fetch("data/" + im.f, { cache: "reload" })).then(r => {
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.arrayBuffer();
     }).then(buf => {
