@@ -65,6 +65,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold-hover);out
   text-shadow:0 0 4px #000,0 0 8px #000;pointer-events:none;padding:10px 12px}
 .ov b{font-weight:400;color:var(--gold);font-variant-numeric:tabular-nums}
 #snap{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;-webkit-user-drag:none}
+@media (max-width:768px){.ov .x{display:none}}
 #tl{top:0;left:0}#tr{top:0;right:0;text-align:right}#bl{bottom:0;left:0}
 #msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
   letter-spacing:.1em;text-transform:uppercase;font-size:14px;color:var(--sand);pointer-events:none}
@@ -152,7 +153,7 @@ const off = document.createElement("canvas"), octx = off.getContext("2d");
 // All dynamic text passes through esc() and is inserted as parsed nodes, never as raw markup.
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const setH = (el, h) => el.replaceChildren(...new DOMParser().parseFromString(h, "text/html").body.childNodes);
-const name = p => esc((p || "").replace("^", ", "));
+const name = p => esc((p || "").replace("^", ", ").replace(/\^+/g, " "));
 
 let M, S = null;                       // manifest, current series
 let si = -1, ii = 0;                   // series index, image index
@@ -217,8 +218,14 @@ function toScr(im, x, y) {
 async function draw() {
   if (!S) return;
   const im = S.images[ii], my = ++token, isRGB = im.spp === 3;
-  setH($("tl"), `${name(M.study.patient)}<br><b>${S.number}</b> ${esc(S.desc)}`);
-  setH($("tr"), (isRGB ? "" : `W <b>${Math.round(ww)}</b> L <b>${Math.round(wc)}</b><br>`) + `Zoom <b>${zoom.toFixed(2)}x</b>`);
+  const st = M.study, sd = st.studyDate || "", stt = st.studyTime || "", age = (st.age || "").replace(/^0+/, "");
+  const when = sd ? `${sd.slice(4, 6)}/${sd.slice(6, 8)}/${sd.slice(0, 4)}` + (stt ? ` ${stt.slice(0, 2)}:${stt.slice(2, 4)}:${stt.slice(4, 6)}` : "") : "";
+  const xl = t => t ? `<span class="x">${t}<br></span>` : "";   // extra header lines, hidden on narrow screens
+  setH($("tl"), `${name(st.patient)}<br>` + xl(esc([age, st.sex, st.pid].filter(Boolean).join(" "))) +
+    xl(st.acc ? "Acc# " + esc(st.acc) : "") + xl(esc(st.studyDesc || "")) + `<b>${S.number}</b> ${esc(S.desc)}`);
+  setH($("tr"), xl(esc(st.institution || "")) + xl(name(st.referring)) + xl(esc(when)) +
+    xl(esc([st.maker, st.model].filter(Boolean).join(" "))) +
+    (isRGB ? "" : `W <b>${Math.round(ww)}</b> L <b>${Math.round(wc)}</b><br>`) + `Zoom <b>${zoom.toFixed(2)}x</b>`);
   $("mont").hidden = !isMontage(im);
   $("single").textContent = tile < 0 ? "Single view" : "All views";
   $("tile").hidden = tile < 0 || !isMontage(im);
