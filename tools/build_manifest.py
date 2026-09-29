@@ -17,10 +17,24 @@ WANT = {
     (0x0028, 0x1053): "slope", (0x0008, 0x0008): "imageType",
     (0x0010, 0x1010): "age", (0x0010, 0x0040): "sex", (0x0008, 0x0050): "acc",
     (0x0008, 0x0080): "institution", (0x0008, 0x0090): "referring", (0x0008, 0x0070): "maker",
-    (0x0008, 0x1090): "model", (0x0008, 0x0030): "studyTime",
+    (0x0008, 0x1090): "model", (0x0008, 0x0030): "studyTime", (0x0008, 0x1070): "operator",
+    (0x0018, 0x5100): "patPos", (0x0010, 0x0030): "dob",
 }
 US = {"rows", "cols", "bitsAlloc", "pixelRep", "samples"}
 LONG_VR = {b"OB", b"OW", b"OF", b"OD", b"OL", b"OV", b"SQ", b"UC", b"UR", b"UT", b"UN"}
+
+
+def study_meta(h):
+    """Study-level fields for the viewer. Age is worked out here ("44Y 4M") so the birth date itself never ships."""
+    m = {k: h.get(k, "") for k in ("patient", "pid", "studyDate", "studyDesc", "sex", "acc", "institution",
+                                    "referring", "maker", "model", "studyTime", "operator", "patPos")}
+    b, d = h.get("dob", ""), h.get("studyDate", "")
+    m["age"] = h.get("age", "")
+    if len(b) == 8 and len(d) == 8:
+        mo = (int(d[:4]) - int(b[:4])) * 12 + int(d[4:6]) - int(b[4:6]) - (int(d[6:]) < int(b[6:]))
+        m["age"] = f"{mo // 12}Y {mo % 12}M"
+    return m
+
 
 
 def skip_undefined(buf, pos):
@@ -109,7 +123,7 @@ def main():
             if h.get("ts") != "1.2.840.10008.1.2.1":
                 print("WARNING non explicit-LE:", p, h.get("ts"), file=sys.stderr)
             n += 1
-            meta = meta or {k: h.get(k, "") for k in ("patient", "pid", "studyDate", "studyDesc", "age", "sex", "acc", "institution", "referring", "maker", "model", "studyTime")}
+            meta = meta or study_meta(h)
             s = series.setdefault(h["seriesUID"], {
                 "uid": h["seriesUID"], "number": int(h.get("seriesNumber") or 0),
                 "desc": h.get("seriesDesc", ""), "modality": h.get("modality", ""), "images": []})

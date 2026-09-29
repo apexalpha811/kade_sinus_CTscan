@@ -218,14 +218,17 @@ function toScr(im, x, y) {
 async function draw() {
   if (!S) return;
   const im = S.images[ii], my = ++token, isRGB = im.spp === 3;
-  const st = M.study, sd = st.studyDate || "", stt = st.studyTime || "", age = (st.age || "").replace(/^0+/, "");
+  const st = M.study, sd = st.studyDate || "", stt = st.studyTime || "", age = st.age || "";
   const when = sd ? `${sd.slice(4, 6)}/${sd.slice(6, 8)}/${sd.slice(0, 4)}` + (stt ? ` ${stt.slice(0, 2)}:${stt.slice(2, 4)}:${stt.slice(4, 6)}` : "") : "";
   const xl = t => t ? `<span class="x">${t}<br></span>` : "";   // extra header lines, hidden on narrow screens
-  setH($("tl"), `${name(st.patient)}<br>` + xl(esc([age, st.sex, st.pid].filter(Boolean).join(" "))) +
-    xl(st.acc ? "Acc# " + esc(st.acc) : "") + xl(esc(st.studyDesc || "")) + `<b>${S.number}</b> ${esc(S.desc)}`);
+  const fv = fit(im), pxs = fv.f * zoom, df = dfov(im);
+  setH($("tl"), `${name(st.patient)}<br>` + xl(esc([age, st.sex, st.pid].filter(Boolean).join(","))) +
+    xl(st.acc ? "Acc# " + esc(st.acc) : "") + xl(st.patPos ? "Patient Pos " + esc(st.patPos) : "") + xl(esc(st.studyDesc || "")) +
+    `<b>${S.number}</b> ${esc(S.desc)}`);
   setH($("tr"), xl(esc(st.institution || "")) + xl(name(st.referring)) + xl(esc(when)) +
-    xl(esc([st.maker, st.model].filter(Boolean).join(" "))) +
-    (isRGB ? "" : `W <b>${Math.round(ww)}</b> L <b>${Math.round(wc)}</b><br>`) + `Zoom <b>${zoom.toFixed(2)}x</b>`);
+    xl(esc([st.maker, st.model].filter(Boolean).join(" "))) + xl(esc(st.operator || "")) + xl(df ? "DFOV <b>" + df + "</b>" : "") +
+    (isRGB ? "" : `W <b>${Math.round(ww)}</b> L <b>${Math.round(wc)}</b><br>`) +
+    `Pixel <b>${Math.round(pxs * 100)}%</b> &nbsp;Zoom <b>${zoom.toFixed(2)}x</b>`);
   $("mont").hidden = !isMontage(im);
   $("single").textContent = tile < 0 ? "Single view" : "All views";
   $("tile").hidden = tile < 0 || !isMontage(im);
@@ -262,6 +265,7 @@ async function draw() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   for (const m of meas.get(si + ":" + ii) || []) drawLine(im, m);
   if (drag && drag.line) drawLine(im, drag.line);
+  scaleMarks(ctx, cw, ch, im.sp && !isMontage(im) ? s / Math.min(im.sp[0], im.sp[1]) : 0, 13, im);
   drawn = my;
   clearTimeout(snapTimer); snapTimer = setTimeout(refreshSnap, 200);
 }
@@ -284,6 +288,30 @@ function drawLine(im, m) {
 // appears (Chrome, Safari and Firefox on Mac and Windows) without breaking left-drag tools.
 const snap = $("snap");
 let drawn = 0, snapTimer = 0;
+// Scale ruler (right side) and patient-side letters, drawn on screen and burned into saved images.
+const OPP = { L: "R", R: "L", P: "A", A: "P", S: "I", I: "S" };
+const axisLetter = v => { const a = v.map(Math.abs), i = a.indexOf(Math.max(...a));
+  return [v[0] > 0 ? "L" : "R", v[1] > 0 ? "P" : "A", v[2] > 0 ? "S" : "I"][i]; };
+const dfov = im => im.sp && !isMontage(im) ? `${(im.cols * im.sp[1] / 10).toFixed(1)} x ${(im.rows * im.sp[0] / 10).toFixed(1)} cm` : "";
+function scaleMarks(x, W, H, ppmm, fs, im) {
+  const col = "#6fb6e6", pad = Math.round(fs * 1.5);
+  x.save(); x.font = `${fs}px sans-serif`; x.lineJoin = "round"; x.lineWidth = Math.max(1, fs / 9);
+  const txt = (t, px, py, al, bl, c) => { x.textAlign = al; x.textBaseline = bl; x.lineWidth = Math.max(2, fs / 5);
+    x.strokeStyle = "#000"; x.strokeText(t, px, py); x.fillStyle = c; x.fillText(t, px, py); x.lineWidth = Math.max(1, fs / 9); };
+  const cm = ppmm && [10, 5, 1].find(c => c * 10 * ppmm <= H * .6);
+  if (cm) {
+    const len = cm * 10 * ppmm, xr = W - pad, yb = H / 2 + len / 2, yt = yb - len, step = cm === 1 ? 1 : 10;
+    x.strokeStyle = col; x.beginPath(); x.moveTo(xr, yt); x.lineTo(xr, yb);
+    for (let mm = 0; mm <= cm * 10; mm += step) { const y = yb - mm * ppmm, big = mm === 0 || mm === cm * 10; x.moveTo(xr, y); x.lineTo(xr - fs * (big ? .8 : .45), y); }
+    x.stroke();
+    txt(`${cm} cm`, xr, yb + fs * .4, "right", "top", col);
+  }
+  if (im.iop) {
+    txt(OPP[axisLetter(im.iop.slice(0, 3))], pad, H / 2, "left", "middle", "#fff");
+    txt(axisLetter(im.iop.slice(3)), W / 2, H - pad * .7, "center", "bottom", "#fff");
+  }
+  x.restore();
+}
 function snapCanvas() {
   const r = region(S.images[ii]), c = document.createElement("canvas");
   c.width = r.w; c.height = r.h;
@@ -298,21 +326,24 @@ function burnInfo(x, w, h) {
   const d = st.studyDate || "", t = st.studyTime || "";
   const when = d ? `${d.slice(4, 6)}/${d.slice(6, 8)}/${d.slice(0, 4)}` + (t ? ` ${t.slice(0, 2)}:${t.slice(2, 4)}:${t.slice(4, 6)}` : "") : "";
   const nm = (v) => (v || "").replace(/\^+/g, " ").trim();
-  const age = (st.age || "").replace(/^0+/, "");
-  const draw = (lines, right, bottom, col) => {
+  const age = st.age || "";
+  const draw = (lines, right, bottom, col, y0) => {
     x.textAlign = right ? "right" : "left"; x.textBaseline = "top";
     lines.forEach((ln, k) => {
-      const y = bottom ? h - pad - lh * (lines.length - k) : pad + lh * k, px = right ? w - pad : pad;
+      const y = bottom ? h - pad - lh * (lines.length - k) : (y0 ?? pad) + lh * k, px = right ? w - pad : pad;
       x.lineWidth = Math.max(2, fs / 5); x.strokeStyle = "#000"; x.strokeText(ln, px, y);
       x.fillStyle = col; x.fillText(ln, px, y);
     });
   };
   x.font = `${fs}px sans-serif`; x.lineJoin = "round";
-  draw([nm(st.patient), [age, st.sex, st.pid].filter(Boolean).join(" "), st.acc ? `Acc#: ${st.acc}` : "",
-    `Study Desc: ${st.studyDesc}`, `Series Desc: ${S.desc}`].filter(Boolean), false, false, "#fff");
-  draw([st.institution, nm(st.referring), when, [st.maker, st.model].filter(Boolean).join(" ")].filter(Boolean), true, false, "#fff");
+  draw([nm(st.patient), [age, st.sex, st.pid].filter(Boolean).join(","), st.acc ? `Acc#: ${st.acc}` : "",
+    st.patPos ? `Patient Pos: ${st.patPos}` : "", `Study Desc: ${st.studyDesc}`, `Series Desc: ${S.desc}`].filter(Boolean), false, false, "#fff");
+  const tr = [st.institution, nm(st.referring), when, [st.maker, st.model].filter(Boolean).join(" "), st.operator].filter(Boolean);
+  draw(tr, true, false, "#fff");
+  if (dfov(im)) draw([`DFOV ${dfov(im)}`], true, false, "#ff5050", pad + lh * tr.length);
   draw([`Image ${ii + 1} / ${S.count}`], false, true, "#fff");
   if (im.spp !== 3) draw([`C ${Math.round(wc)}`, `W ${Math.round(ww)}`], true, true, "#ff5050");
+  scaleMarks(x, w, h, im.sp && !isMontage(im) ? 1 / im.sp[0] : 0, fs, im);
 }
 function refreshSnap() {
   const t = drawn;
