@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CT Scan Viewer</title>
-<meta name="description" content="Browser viewer for a CT scan of the face and sinuses. Works on Mac, Windows and tablets.">
+<meta name="description" content="Browser viewer for a CT scan of the face and sinuses. Best on a desktop or laptop (Mac or Windows); phones show a warning.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=Jost:wght@400&display=swap" rel="stylesheet">
@@ -85,9 +85,26 @@ input[type=range]{flex:1;accent-color:var(--gold);min-height:44px}
 @media (min-width:1441px){:root{--maxw:1620px}}
 @media (min-width:1921px){:root{--maxw:1900px}html{font-size:18px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+#mob{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;padding:24px}
+#mob.on{display:flex}
+#mob div{max-width:420px;border:1px solid var(--hair);background:var(--onyx);padding:28px 24px;text-align:center}
+#mob h2{margin:0 0 12px;font:300 26px/1.2 var(--head);color:var(--bone);letter-spacing:.08em;text-transform:uppercase}
+#mob p{margin:0 0 14px;font-size:15px;line-height:1.6}
+#mob .warn{color:var(--gold-hover)}
+#mob button{margin-top:6px;min-height:44px;padding:10px 18px;background:none;border:1px solid var(--gold);color:var(--gold-hover);
+  font:400 14px var(--body);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
+#mob button:focus-visible{outline:2px solid var(--gold-hover);outline-offset:2px}
 </style>
 </head>
 <body>
+<div id="mob" role="dialog" aria-modal="true" aria-labelledby="mobh">
+  <div>
+    <h2 id="mobh">Best on a desktop</h2>
+    <p>This CT viewer is built for a computer screen with a mouse. Please open it on a desktop or laptop.</p>
+    <p class="warn">Warning: on a phone the image is small, the toolbar is cramped, and measuring, brightness and contrast, and panning are hard to do accurately. Do not rely on measurements made here.</p>
+    <button id="mobgo" type="button">I understand, continue anyway</button>
+  </div>
+</div>
 <header>
   <h1>CT Scan Viewer</h1>
   <div class="meta" id="meta"></div>
@@ -495,6 +512,18 @@ window.addEventListener("resize", resize);
   resize();
   const first = M.series.findIndex(s => s.number === 3);   // bone axial is the useful default for sinuses
   pick(first >= 0 ? first : 0);
+})();
+// Phone-width screens get a "use a desktop" notice; it can be dismissed for the rest of the session.
+(function () {
+  const box = document.getElementById("mob");
+  let ok = false;
+  try { ok = sessionStorage.getItem("mobOk") === "1"; } catch (e) { /* storage blocked: ask each load */ }
+  if (ok || !matchMedia("(max-width:768px)").matches) return;
+  box.classList.add("on");
+  document.getElementById("mobgo").onclick = () => {
+    box.classList.remove("on");
+    try { sessionStorage.setItem("mobOk", "1"); } catch (e) { /* not remembered */ }
+  };
 })();
 </script>
 </body>
