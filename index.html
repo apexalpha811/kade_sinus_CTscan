@@ -276,7 +276,7 @@ function drawLine(im, m) {
 // takes pointer events for a right-click / Ctrl-click, so the browser's own Save / Copy Image menu
 // appears (Chrome, Safari and Firefox on Mac and Windows) without breaking left-drag tools.
 const snap = $("snap");
-let snapURL = null, drawn = 0, snapTimer = 0;
+let drawn = 0, snapTimer = 0;
 function snapCanvas() {
   const r = region(S.images[ii]), c = document.createElement("canvas");
   c.width = r.w; c.height = r.h;
@@ -286,13 +286,8 @@ function snapCanvas() {
 function refreshSnap() {
   const t = drawn;
   if (!S || !t) return;
-  snapCanvas().toBlob(b => {
-    if (!b || t !== drawn) return;
-    const u = URL.createObjectURL(b);
-    snap.src = u; snap.dataset.t = t;
-    if (snapURL) URL.revokeObjectURL(snapURL);
-    snapURL = u;
-  }, "image/png");
+  // data URL, not blob: Chrome's "Save image as" re-fetches the src, and a revoked blob URL fails as "check internet connection"
+  snap.src = snapCanvas().toDataURL("image/png"); snap.dataset.t = t;
 }
 function armSnap() {
   if (!S || !drawn) return;
