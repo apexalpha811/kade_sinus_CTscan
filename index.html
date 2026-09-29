@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CT Scan Viewer</title>
+<meta name="description" content="Browser viewer for a CT scan of the face and sinuses. Works on Mac, Windows and tablets.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300&family=Jost:wght@400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#000; --onyx:#0D0D0D; --charcoal:#1C1C1E;
+  --bone:#EDE7DE; --sand:#C9BCA9; --slate:#6B6965;
+  --gold:#B08D57; --gold-hover:#D4AF76;
+  --hair:rgba(176,141,87,.22); --hair-soft:rgba(176,141,87,.13);
+  --head:'Cormorant Garamond','Times New Roman',serif;
+  --body:'Jost','Helvetica Neue',Arial,sans-serif;
+  --maxw:1480px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--ground);color:var(--sand);font:400 16px/1.7 var(--body)}
+body{min-height:100vh;position:relative}
+body::before{content:"";position:fixed;inset:0;z-index:-2;
+  background:
+    radial-gradient(70vmax 60vmax at 82% -2%,rgba(64,92,76,1),transparent 62%),
+    radial-gradient(60vmax 55vmax at -4% 102%,rgba(52,76,62,.9),transparent 60%),
+    #000}
+body::after{content:"";position:fixed;inset:0;z-index:-1;opacity:.05;pointer-events:none;
+  background-image:radial-gradient(rgba(237,231,222,.55) 1px,transparent 1px);background-size:3px 3px}
+header{max-width:var(--maxw);margin:0 auto;padding:clamp(20px,3vw,40px) clamp(16px,3vw,40px) 12px;
+  display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 32px}
+h1{font:300 clamp(1.6rem,1rem + 2vw,3rem)/1.1 var(--head);letter-spacing:.16em;text-transform:uppercase;color:var(--bone);margin:0}
+.meta{font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate);display:flex;flex-wrap:wrap;gap:4px 24px}
+.meta b{font-weight:400;color:var(--gold);font-variant-numeric:tabular-nums}
+.rule{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,3vw,40px)}
+.rule i{display:block;height:1px;background:var(--hair-soft)}
+main{max-width:var(--maxw);margin:0 auto;padding:16px clamp(16px,3vw,40px) 40px;
+  display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+.card{background:var(--charcoal);border:1px solid var(--hair);border-radius:2px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+h2{font:400 14px/1.4 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--slate);margin:0;padding:16px 16px 8px}
+#list{max-height:calc(100vh - 200px);overflow:auto;padding:0 8px 8px}
+.ser{display:flex;gap:12px;align-items:baseline;width:100%;text-align:left;background:transparent;border:1px solid transparent;
+  border-radius:2px;padding:10px 8px;color:var(--bone);font:400 14px/1.4 var(--body);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  transition:border-color .22s ease,background .22s ease;min-height:44px}
+.ser:hover{border-color:var(--hair)}
+.ser.on{border-color:var(--gold);background:var(--onyx)}
+.ser .no{color:var(--gold);font-variant-numeric:tabular-nums;min-width:2.4ch}
+.ser .d{flex:1}
+.ser .n{color:var(--gold);font-variant-numeric:tabular-nums}
+.ser small{display:block;color:var(--slate);letter-spacing:.06em;font-size:12px}
+#stage{display:flex;flex-direction:column}
+.bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px;border-bottom:1px solid var(--hair-soft)}
+.grp{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grp + .grp{padding-left:12px;border-left:1px solid var(--hair-soft)}
+button.b{background:transparent;border:1px solid var(--gold);border-radius:2px;color:var(--gold);
+  font:400 14px/1 var(--body);letter-spacing:.12em;text-transform:uppercase;padding:0 16px;min-height:44px;cursor:pointer;
+  transition:background .22s ease,color .22s ease}
+button.b:hover,button.b.on{background:var(--gold);color:var(--onyx)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold-hover);outline-offset:2px}
+#view{position:relative;height:clamp(420px,calc(100vh - 300px),1100px);background:#000;overflow:hidden;touch-action:none;cursor:move;user-select:none}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ov{position:absolute;font-size:13px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:var(--bone);
+  text-shadow:0 0 4px #000,0 0 8px #000;pointer-events:none;padding:10px 12px}
+.ov b{font-weight:400;color:var(--gold);font-variant-numeric:tabular-nums}
+#snap{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none;-webkit-user-drag:none}
+#tl{top:0;left:0}#tr{top:0;right:0;text-align:right}#bl{bottom:0;left:0}
+#msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:24px;
+  letter-spacing:.1em;text-transform:uppercase;font-size:14px;color:var(--sand);pointer-events:none}
+.sl{display:flex;align-items:center;gap:12px;padding:12px;border-top:1px solid var(--hair-soft)}
+.sl .pos{font-size:13px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.sl .pos b{font-weight:400;color:var(--gold);font-variant-numeric:tabular-nums}
+input[type=range]{flex:1;accent-color:var(--gold);min-height:44px}
+.hint{padding:0 16px 16px;font-size:13px;color:var(--slate);letter-spacing:.04em}
+.hint b{font-weight:400;color:var(--sand)}
+@media (max-width:900px){
+  main{grid-template-columns:1fr}
+  aside{order:2}
+  .grp + .grp{padding-left:0;border-left:0}
+  #list{max-height:220px}
+  #view{height:clamp(360px,60vh,700px)}
+}
+@media (min-width:1441px){:root{--maxw:1620px}}
+@media (min-width:1921px){:root{--maxw:1900px}html{font-size:18px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>CT Scan Viewer</h1>
+  <div class="meta" id="meta"></div>
+</header>
+<div class="rule"><i></i></div>
+<main>
+  <aside class="card">
+    <h2>Series</h2>
+    <div id="list" role="listbox" aria-label="Series"></div>
+    <div class="hint">
+      <b>Scroll</b> or <b>arrow keys</b> change slice.<br>
+      <b>Space</b> plays the stack. <b>Save PNG</b> keeps the current window; <b>Save DICOM</b> gives the original file.<br>
+      Hold <b>Ctrl</b> (or <b>Cmd</b>) and scroll to zoom. <b>Right-click</b> (Mac: two-finger click or Ctrl-click) opens the browser menu to save or copy the image.
+    </div>
+  </aside>
+  <section class="card" id="stage">
+    <div class="bar">
+      <div class="grp" id="tools">
+        <button class="b on" data-tool="wl" title="Drag: brightness and contrast">Window</button>
+        <button class="b" data-tool="pan" title="Drag: move image">Pan</button>
+        <button class="b" data-tool="zoom" title="Drag: zoom">Zoom</button>
+        <button class="b" data-tool="ruler" title="Drag: measure distance in mm">Measure</button>
+      </div>
+      <div class="grp" id="presets">
+        <button class="b" data-wl="40,400">Soft tissue</button>
+        <button class="b" data-wl="500,2000">Bone</button>
+        <button class="b" data-wl="200,2000">Sinus</button>
+        <button class="b" data-wl="-600,1500">Lung</button>
+      </div>
+      <div class="grp">
+        <button class="b" id="play">Play</button>
+        <button class="b" id="inv">Invert</button>
+        <button class="b" id="clr">Clear</button>
+        <button class="b" id="rst">Reset</button>
+      </div>
+      <div class="grp" id="mont" hidden>
+        <button class="b" id="single">All views</button>
+        <button class="b" id="tile">Next view</button>
+      </div>
+      <div class="grp">
+        <button class="b" id="dlp" title="Save this image as PNG with the current window">Save PNG</button>
+        <button class="b" id="dld" title="Save the original DICOM file">Save DICOM</button>
+      </div>
+    </div>
+    <div id="view" tabindex="0" aria-label="Image viewport">
+      <canvas id="cv"></canvas>
+      <img id="snap" alt="Current CT image">
+      <div class="ov" id="tl"></div><div class="ov" id="tr"></div><div class="ov" id="bl"></div>
+      <div id="msg"></div>
+    </div>
+    <div class="sl">
+      <span class="pos" id="pos"></span>
+      <input type="range" id="slider" min="0" max="0" value="0" aria-label="Slice">
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d"), view = $("view");
+const off = document.createElement("canvas"), octx = off.getContext("2d");
+// All dynamic text passes through esc() and is inserted as parsed nodes, never as raw markup.
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const setH = (el, h) => el.replaceChildren(...new DOMParser().parseFromString(h, "text/html").body.childNodes);
+const name = p => esc((p || "").replace("^", ", "));
+
+let M, S = null;                       // manifest, current series
+let si = -1, ii = 0;                   // series index, image index
+let wc = 40, ww = 400, invert = false;
+let zoom = 1, panX = 0, panY = 0, tool = "wl";
+const cache = new Map();               // file -> Promise<pixels>
+const meas = new Map();                // "si:ii" -> [{a,b}]
+let tile = -1, cine = null, cw = 0, ch = 0, dpr = 1, drag = null, token = 0;
+
+// ponytail: fetches the whole file and slices the pixel block off the end; valid because Pixel Data
+// is the last element on this disc (verified below), avoids a full DICOM parser in the browser.
+function load(im) {
+  if (!cache.has(im.f)) {
+    cache.set(im.f, fetch("data/" + im.f).then(r => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.arrayBuffer();
+    }).then(buf => {
+      const bytes = im.bits / 8, n = im.rows * im.cols * im.spp, o = buf.byteLength - n * bytes;
+      const dv = new DataView(buf);
+      if (o < 12 || dv.getUint16(o - 12, true) !== 0x7FE0 || dv.getUint16(o - 10, true) !== 0x0010)
+        throw new Error("Unexpected pixel layout");
+      const px = buf.slice(o);
+      return im.bits === 8 ? new Uint8Array(px) : im.rep ? new Int16Array(px) : new Uint16Array(px);
+    }).catch(e => { cache.delete(im.f); throw e; }));
+  }
+  return cache.get(im.f);
+}
+
+function pump(list, start) {           // prefetch a series, nearest slices first, 6 at a time
+  const order = list.map((_, i) => i).sort((a, b) => Math.abs(a - start) - Math.abs(b - start));
+  let k = 0;
+  const run = async () => {
+    while (k < order.length && S && S.images === list) {
+      try { await load(list[order[k++]]); } catch (e) { /* surfaced when that slice is opened */ }
+    }
+  };
+  for (let i = 0; i < 6; i++) run();
+}
+
+// A montage is one picture holding a 3x3 grid of renders (series 606); tile >= 0 crops to one of them.
+const isMontage = im => im.spp === 3 && im.cols / im.rows > 2;
+function region(im) {
+  if (tile < 0 || !isMontage(im)) return { x: 0, y: 0, w: im.cols, h: im.rows };
+  const w = im.cols / 3, h = im.rows / 3;
+  return { x: (tile % 3) * w, y: Math.floor(tile / 3) * h, w, h };
+}
+function fit(im) {
+  const r = region(im), sy = im.sp ? im.sp[0] : 1, sx = im.sp ? im.sp[1] : 1, m = Math.min(sx, sy);
+  const kx = sx / m, ky = sy / m;
+  return { kx, ky, f: Math.min(cw / (r.w * kx), ch / (r.h * ky)) };
+}
+function toImg(im, px, py) {
+  const { kx, ky, f } = fit(im), s = f * zoom, r = region(im);
+  return [((px - cw / 2 - panX) / s) / kx + r.x + r.w / 2, ((py - ch / 2 - panY) / s) / ky + r.y + r.h / 2];
+}
+function toScr(im, x, y) {
+  const { kx, ky, f } = fit(im), s = f * zoom, r = region(im);
+  return [(x - r.x - r.w / 2) * kx * s + cw / 2 + panX, (y - r.y - r.h / 2) * ky * s + ch / 2 + panY];
+}
+
+async function draw() {
+  if (!S) return;
+  const im = S.images[ii], my = ++token, isRGB = im.spp === 3;
+  setH($("tl"), `${name(M.study.patient)}<br><b>${S.number}</b> ${esc(S.desc)}`);
+  setH($("tr"), (isRGB ? "" : `W <b>${Math.round(ww)}</b> L <b>${Math.round(wc)}</b><br>`) + `Zoom <b>${zoom.toFixed(2)}x</b>`);
+  $("mont").hidden = !isMontage(im);
+  $("single").textContent = tile < 0 ? "Single view" : "All views";
+  $("tile").hidden = tile < 0 || !isMontage(im);
+  setH($("bl"), `Image <b>${ii + 1}</b> / <b>${S.count}</b>` +
+    (im.loc != null ? `<br>Loc <b>${im.loc.toFixed(1)}</b> mm` : "") + (im.th ? ` &nbsp;Thk <b>${im.th}</b> mm` : ""));
+  setH($("pos"), `<b>${ii + 1}</b> / <b>${S.count}</b>`);
+  $("slider").value = ii;
+  let px;
+  try { px = await load(im); $("msg").style.display = "none"; }
+  catch (e) { $("msg").style.display = "flex"; $("msg").textContent = "Could not load image (" + e.message + ")"; return; }
+  if (my !== token) return;
+  if (off.width !== im.cols || off.height !== im.rows) { off.width = im.cols; off.height = im.rows; }
+  const id = octx.createImageData(im.cols, im.rows), o = id.data, n = im.cols * im.rows;
+  if (isRGB) {
+    for (let i = 0, j = 0, k = 0; i < n; i++, j += 4, k += 3) { o[j] = px[k]; o[j + 1] = px[k + 1]; o[j + 2] = px[k + 2]; o[j + 3] = 255; }
+  } else {
+    const lo = wc - ww / 2, sc = 255 / ww, sl = im.sl, ic = im.ic;
+    for (let i = 0, j = 0; i < n; i++, j += 4) {
+      let g = (px[i] * sl + ic - lo) * sc;
+      g = g < 0 ? 0 : g > 255 ? 255 : g;
+      if (invert) g = 255 - g;
+      o[j] = o[j + 1] = o[j + 2] = g; o[j + 3] = 255;
+    }
+  }
+  octx.putImageData(id, 0, 0);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#000"; ctx.fillRect(0, 0, cv.width, cv.height);
+  const { kx, ky, f } = fit(im), s = f * zoom, r = region(im);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingEnabled = zoom < 3;
+  ctx.translate(cw / 2 + panX, ch / 2 + panY);
+  ctx.scale(s * kx, s * ky);
+  ctx.drawImage(off, r.x, r.y, r.w, r.h, -r.w / 2, -r.h / 2, r.w, r.h);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  for (const m of meas.get(si + ":" + ii) || []) drawLine(im, m);
+  if (drag && drag.line) drawLine(im, drag.line);
+  drawn = my;
+  clearTimeout(snapTimer); snapTimer = setTimeout(refreshSnap, 200);
+}
+
+function drawLine(im, m) {
+  const a = toScr(im, m.a[0], m.a[1]), b = toScr(im, m.b[0], m.b[1]);
+  const sy = im.sp ? im.sp[0] : 1, sx = im.sp ? im.sp[1] : 1;
+  const mm = Math.hypot((m.b[0] - m.a[0]) * sx, (m.b[1] - m.a[1]) * sy);
+  ctx.strokeStyle = "#D4AF76"; ctx.fillStyle = "#D4AF76"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+  for (const p of [a, b]) { ctx.beginPath(); ctx.arc(p[0], p[1], 3, 0, 7); ctx.fill(); }
+  ctx.font = "500 14px Jost, Arial, sans-serif";
+  const t = im.sp ? mm.toFixed(1) + " mm" : mm.toFixed(0) + " px";
+  const tx = (a[0] + b[0]) / 2 + 8, ty = (a[1] + b[1]) / 2 - 8;
+  ctx.lineWidth = 3; ctx.strokeStyle = "#000"; ctx.strokeText(t, tx, ty); ctx.fillText(t, tx, ty);
+}
+
+// Right-click support: a transparent <img> holding the current picture sits over the canvas. It only
+// takes pointer events for a right-click / Ctrl-click, so the browser's own Save / Copy Image menu
+// appears (Chrome, Safari and Firefox on Mac and Windows) without breaking left-drag tools.
+const snap = $("snap");
+let snapURL = null, drawn = 0, snapTimer = 0;
+function snapCanvas() {
+  const r = region(S.images[ii]), c = document.createElement("canvas");
+  c.width = r.w; c.height = r.h;
+  c.getContext("2d").drawImage(off, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  return c;
+}
+function refreshSnap() {
+  const t = drawn;
+  if (!S || !t) return;
+  snapCanvas().toBlob(b => {
+    if (!b || t !== drawn) return;
+    const u = URL.createObjectURL(b);
+    snap.src = u; snap.dataset.t = t;
+    if (snapURL) URL.revokeObjectURL(snapURL);
+    snapURL = u;
+  }, "image/png");
+}
+function armSnap() {
+  if (!S || !drawn) return;
+  if (snap.dataset.t !== String(drawn)) { snap.src = snapCanvas().toDataURL("image/png"); snap.dataset.t = drawn; }
+  snap.style.pointerEvents = "auto";
+}
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  cw = view.clientWidth; ch = view.clientHeight;
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  draw();
+}
+
+function autoWL(px, im) {              // for text pages and images with no usable window
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < px.length; i += 7) { const v = px[i] * im.sl + im.ic; if (v < lo) lo = v; if (v > hi) hi = v; }
+  ww = Math.max(1, hi - lo); wc = lo + ww / 2;
+}
+async function defaultWL() {
+  const im = S.images[ii];
+  if (im.spp === 3) return;
+  if (im.wc && im.ww && im.ww[0] > 1) { wc = im.wc[0]; ww = im.ww[0]; return; }
+  try { autoWL(await load(im), im); } catch (e) { wc = 40; ww = 400; }
+}
+
+async function pick(n) {
+  stop();
+  si = n; S = M.series[n]; ii = Math.floor(S.count / 2);
+  zoom = 1; panX = panY = 0; invert = false;
+  tile = isMontage(S.images[0]) ? 0 : -1;   // one render at a time is the readable default
+  $("slider").max = S.count - 1;
+  document.querySelectorAll(".ser").forEach((e, i) => e.classList.toggle("on", i === n));
+  await defaultWL();
+  draw(); pump(S.images, ii);
+}
+
+function go(d, wrap) {
+  if (!S) return;
+  const n = wrap ? (ii + d + S.count) % S.count : Math.max(0, Math.min(S.count - 1, ii + d));
+  if (n !== ii) { ii = n; draw(); }
+}
+function stop() { if (cine) { clearInterval(cine); cine = null; $("play").textContent = "Play"; $("play").classList.remove("on"); } }
+function play() {
+  if (cine) return stop();
+  if (!S || S.count < 2) return;
+  $("play").textContent = "Stop"; $("play").classList.add("on");
+  cine = setInterval(() => go(1, true), 1000 / 15);
+}
+
+view.addEventListener("pointerdown", e => {
+  if (!S) return;
+  if (e.button === 2 || (e.button === 0 && e.ctrlKey)) { armSnap(); return; }   // native image menu
+  view.setPointerCapture(e.pointerId); view.focus();
+  const r = view.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const t = e.button === 1 ? "pan" : tool;
+  drag = { t, x, y, wc, ww, zoom, panX, panY };
+  if (t === "ruler") { const p = toImg(S.images[ii], x, y); drag.line = { a: p, b: p }; }
+});
+view.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const r = view.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, dx = x - drag.x, dy = y - drag.y;
+  if (drag.t === "wl") { if (S.images[ii].spp !== 3) { const k = drag.ww / 400 + 2; ww = Math.max(1, drag.ww + dx * k); wc = drag.wc + dy * k; } }
+  else if (drag.t === "pan") { panX = drag.panX + dx; panY = drag.panY + dy; }
+  else if (drag.t === "zoom") zoom = Math.max(.2, Math.min(20, drag.zoom * Math.exp(-dy / 150)));
+  else if (drag.t === "ruler") drag.line.b = toImg(S.images[ii], x, y);
+  draw();
+});
+const end = () => {
+  if (drag && drag.line) {
+    const l = drag.line;
+    if (Math.hypot(l.b[0] - l.a[0], l.b[1] - l.a[1]) > 2) { const k = si + ":" + ii; meas.set(k, [...(meas.get(k) || []), l]); }
+  }
+  drag = null; draw();
+};
+view.addEventListener("pointerup", end); view.addEventListener("pointercancel", end);
+view.addEventListener("contextmenu", e => {
+  if (e.target !== snap) e.preventDefault();
+  setTimeout(() => { snap.style.pointerEvents = ""; }, 0);
+});
+view.addEventListener("wheel", e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) { zoom = Math.max(.2, Math.min(20, zoom * Math.exp(-e.deltaY / 300))); draw(); }
+  else go(e.deltaY > 0 ? 1 : -1);
+}, { passive: false });
+view.addEventListener("keydown", e => {
+  const k = e.key;
+  if (k === "ArrowDown" || k === "ArrowRight") go(1);
+  else if (k === "ArrowUp" || k === "ArrowLeft") go(-1);
+  else if (k === "PageDown") go(10); else if (k === "PageUp") go(-10);
+  else if (k === "Home") go(-1e6); else if (k === "End") go(1e6);
+  else if (k === " ") play(); else return;
+  e.preventDefault();
+});
+
+$("slider").addEventListener("input", e => { ii = +e.target.value; draw(); });
+$("single").onclick = () => { tile = tile < 0 ? 0 : -1; zoom = 1; panX = panY = 0; draw(); };
+$("tile").onclick = () => { tile = (tile + 1) % 9; draw(); };
+function save(blob, ext) {
+  const im = S.images[ii], a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${M.study.pid}_S${S.number}_${S.desc.replace(/[^A-Za-z0-9]+/g, "-")}_${String(ii + 1).padStart(3, "0")}${tile >= 0 && ext === "png" ? "_v" + (tile + 1) : ""}.${ext}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+$("dlp").onclick = async () => {              // the rendered offscreen image, current window, no overlays
+  await draw();
+  snapCanvas().toBlob(b => b && save(b, "png"), "image/png");
+};
+$("dld").onclick = async () => {
+  try { const r = await fetch("data/" + S.images[ii].f); if (!r.ok) throw 0; save(await r.blob(), "dcm"); }
+  catch (e) { $("msg").style.display = "flex"; $("msg").textContent = "Could not download the DICOM file"; }
+};
+$("play").onclick = play;
+$("inv").onclick = () => { invert = !invert; draw(); };
+$("clr").onclick = () => { meas.delete(si + ":" + ii); draw(); };
+$("rst").onclick = async () => { zoom = 1; panX = panY = 0; invert = false; await defaultWL(); draw(); };
+$("tools").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  tool = b.dataset.tool;
+  document.querySelectorAll("#tools .b").forEach(x => x.classList.toggle("on", x === b));
+  view.style.cursor = tool === "pan" ? "grab" : tool === "ruler" ? "crosshair" : tool === "zoom" ? "ns-resize" : "move";
+};
+$("presets").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  [wc, ww] = b.dataset.wl.split(",").map(Number); draw();
+};
+window.addEventListener("resize", resize);
+
+(async function init() {
+  try { M = await (await fetch("manifest.json")).json(); }
+  catch (e) { $("msg").style.display = "flex"; $("msg").textContent = "Could not load manifest.json"; return; }
+  const st = M.study, d = st.studyDate;
+  const date = d ? `${d.slice(4, 6)}/${d.slice(6, 8)}/${d.slice(0, 4)}` : "";
+  const total = M.series.reduce((a, s) => a + s.count, 0);
+  setH($("meta"), `<span>${name(st.patient)}</span><span>ID <b>${esc(st.pid)}</b></span><span><b>${esc(date)}</b></span>` +
+    `<span>${esc(st.studyDesc)}</span><span><b>${M.series.length}</b> series</span><span><b>${total}</b> images</span>`);
+  setH($("list"), M.series.map((s, i) =>
+    `<button class="ser" role="option" data-i="${i}"><span class="no">${s.number}</span>` +
+    `<span class="d">${esc(s.desc || "Series")}<small>${esc(s.modality)} ${s.images[0].cols} x ${s.images[0].rows}</small></span>` +
+    `<span class="n">${s.count}</span></button>`).join(""));
+  $("list").onclick = e => { const b = e.target.closest(".ser"); if (b) pick(+b.dataset.i); };
+  resize();
+  const first = M.series.findIndex(s => s.number === 3);   // bone axial is the useful default for sinuses
+  pick(first >= 0 ? first : 0);
+})();
+</script>
+</body>
+</html>
